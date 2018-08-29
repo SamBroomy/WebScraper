@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+
+#   TODO:   some urls scraped are not of the correct format and crash the program eg https://twitter.com/itvfootball/status/1005921932473012224
+
 """
 pip install bs4
 pip install requests
@@ -8,6 +11,7 @@ pip install requests
 #import sqlite3
 from bs4 import BeautifulSoup
 import requests
+import os
 
 
 class WebScraper:
@@ -31,19 +35,33 @@ class WebScraper:
         self.all_stories = {}
 
         #   Input Arguments
-        page_limit = 5
-        find_sub_pages = True
-        prints_output = False
+        self.page_limit = 0
+        self.find_sub_pages = True
+        self.prints_output = False
+        self.prints_sub_page = False
+        self.saves = True
+        self.saves_sub_page = False
+
+        #if not self.check_valid_input_arguments(self.page_limit, self.find_sub_pages, self.prints_output, self.saves):
+        #    return
+         
 
         if not args:
             self.get_main_page_info()
-            #   TODO: Go to the bbc homepage and get latest storied 
         else:
             for suffix in args:
                 print ('Main Page: {}'.format(suffix))
                 self.link_list.append(suffix)
                 link = '{0}/news/{1}'.format(self.LINK_PREFIX, suffix)
-                self.get_page_info_using_list(link, find_extra_pages = find_sub_pages, limit = page_limit, prints = prints_output)
+                self.get_page_info_using_list(link, find_extra_pages = self.find_sub_pages, limit = self.page_limit, prints = self.prints_output, saves = self.saves)
+
+
+    #def check_valid_input_arguments(self, page_lim_args, sub_pages_args, prints_args):
+        #if self.page_limit < 0 :
+        #    print ('Invalid INPUT ARGUMENTS!')
+        #    return False
+        #else:
+        #    return True
 
 
     def get_main_page_info(self):
@@ -59,11 +77,11 @@ class WebScraper:
         try:
             soup = BeautifulSoup(r.text, 'html.parser')
             most_read = soup.find("div", class_="nw-c-most-read gs-t-news gs-u-box-size no-touch b-pw-1280")
-            header = "\n\t{0}\n".format(most_read.h2.text).expandtabs(30)
+            header = "\n\t{0}\n".format(most_read.h2.text).expandtabs(32)
             stories = most_read.find_all("div", class_="gs-o-media__body")
             i = 1
         except:
-            print("FAILED: \n\tUnable to scrape main page: '{}'\n".format(r.url).expandtabs(6))
+            print("FAILED: \n\tUnable to scrape main page: '{}'\n".format(r.url).expandtabs(8))
             return
 
         print('{}\nAll top stories:'.format(header))
@@ -71,12 +89,12 @@ class WebScraper:
         for story in stories:
             self.all_stories[story.a.text] = story.a['href'] 
             link = '{}{}'.format(self.LINK_PREFIX, story.a['href'])
-            print("\t{}.\t{}\n-> '{}'".format(i, story.a.text, link).expandtabs(6))
-            self.get_page_info_using_list(link, prints = False, find_extra_pages = True)
+            print("\t{}.\t{}\n-> '{}'".format(i, story.a.text, link).expandtabs(8))
+            self.get_page_info_using_list(link, prints = self.prints_output, find_extra_pages = self.find_sub_pages, limit = self.page_limit, saves = self.saves)
             i += 1
 
 
-    def get_page_info_using_list(self, link, find_extra_pages = False, limit = 4, prints = False):
+    def get_page_info_using_list(self, link, find_extra_pages = False, limit = 4, prints = False, saves = False):
 
         r = requests.get(link)
 
@@ -88,7 +106,7 @@ class WebScraper:
             soup = BeautifulSoup(r.text, 'html.parser')
             article = soup.find('div', class_="story-body")
             tags = soup.find_all('div', class_="tags-container")
-            header = '\n\t{0}\n'.format(article.h1.text).expandtabs(30)
+            header = '\n\t{0}\n'.format(article.h1.text).expandtabs(32)
             story = article.find('div', class_="story-body__inner")
             texts = story.find_all(['p', 'h2', 'img', 'figcaption'])
 
@@ -97,7 +115,7 @@ class WebScraper:
             for text in texts:
                 if text.name == 'p':
                     if text.strong:
-                        all_text += ''.join('\t{}\n'.format(text.strong.text.strip()).expandtabs(10))
+                        all_text += ''.join('\t{}\n'.format(text.strong.text.strip()).expandtabs(12))
                     elif text.a:
                         all_text += ''.join('\t{}  -- | {} | --\n'.format(text.a.text.strip(), text.a['href'].strip()).expandtabs(6))
                     else:
@@ -113,8 +131,26 @@ class WebScraper:
 
             if prints:
                 print('\n{0}{1}\n'.format(header, all_text))
+
+            if saves:
+                try:
+                    file_name = '{0}.txt'.format(link[22:].strip().capitalize().replace("-", "_").replace("/", "-"))
+                    print("Checking to se if ' {} ' already exists!".format(file_name))
+                    path_to_file = 'news\{}'.format(file_name)
+                    if os.path.exists(path_to_file):
+                        print("The file exists!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                    else:
+                        print("The file does not exist ****************")                 
+                        #   TODO: If link is a news link save to news folder
+                        #         if sports  link save to sports foldar
+                        with open(path_to_file, "w+") as file_to_save:
+                            file_to_save.write('\n{0}{1}\n'.format(header, all_text))
+                        print('\n\tSAVED!!!!!!!\n'.expandtabs(24))
+                except:
+                    print('\n\tUnable To Save File!\n'.expandtabs(24))
+                #saves to file
         except:
-            print("FAILED: \n\tUnable to scrape page: '{}'\n".format(r.url).expandtabs(6))
+            print("FAILED: \n\tUnable to scrape page: '{}'\n".format(r.url).expandtabs(8))
             return
 
         if find_extra_pages:
@@ -128,11 +164,11 @@ class WebScraper:
                 elif len(tags) == 2:
                     main_tag = tags[1].li.a['href']
             except ValueError as exp:
-                print ("ERROR: \n\t{}\n".format(exp).expandtabs(6))
+                print ("ERROR: \n\t{}\n".format(exp).expandtabs(8))
                 return
 
             page_link = '{0}{1}'.format(self.LINK_PREFIX, main_tag)
-            print ('Link to Sub-Page: ',page_link)
+            print ('\nLink to Sub-Page: {}'.format(page_link))
             source = requests.get(page_link)
             if self.get_page_error(source.status_code):
                 print("Error in trying to reach related topics page: {}\n".format(r.url))
@@ -141,15 +177,24 @@ class WebScraper:
             links = soup.find_all('a', class_="lx-stream-asset__cta gel-long-primer-bold")
             for link in links:
                 link = link['href'].split('?')[0]
-                if i >= limit:
-                    print('Max Number of sub_pages searched')
-                    break
-                if link not in self.link_list :
-                    print('Page sublink: {}'.format(link))
-                    self.link_list.append(link)
-                    subpage_link = '{0}{1}'.format(self.LINK_PREFIX,link)
-                    self.get_page_info_using_list(subpage_link, prints = prints)
-                    i += 1
+                if link[:6] == '/news/' or link[:7] == '/sport/':
+                    if i >= limit:
+                        print('Max Number of sub_pages searched!')
+                        break
+                    if link not in self.link_list:
+                        print('Page sublink: {}'.format(link))
+                        self.link_list.append(link)
+
+                        #   If its a sports page it wont scrape.
+                        #   TODO: Create a Sports page scraper
+
+                        subpage_link = '{0}{1}'.format(self.LINK_PREFIX,link)
+                        i += 1
+                        if link[:7] == '/sport/':
+                            print("\tSPORT PAGE -\n\t\tUnable to scrape sports page yet: '{}'".format(subpage_link).expandtabs(4))
+                            break
+                        self.get_page_info_using_list(subpage_link, prints = self.prints_sub_page, saves = self.saves_sub_page)
+
             print('Pages found: {}\n'.format(i))
 
 
@@ -171,6 +216,7 @@ def main():
     #link_suffixes = ['/news/world-asia-44158566', '/news/world-middle-east-44167900', '/news/world-middle-east-44210403']
     #web_scraper = WebScraper('world-asia-44158566', 'world-middle-east-44167900', 'world-middle-east-44210403')
     WebScraper()
+    #WebScraper('world-asia-44158566')
     #print(WebScraper._WebScraper__private_variable)
 
     #   You can access private attributes as object._className__attrName
