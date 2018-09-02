@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 import requests
 import os
 import datetime
-from data_analyser import DataAnalyser
+#from data_analyser import DataAnalyser
 
 
 class WebScraper:
@@ -33,7 +33,7 @@ class WebScraper:
 
         #   Input Arguments
         self.find_sub_pages = True
-        self.page_limit = 100
+        self.page_limit = 10
         self.prints_output = False
         self.prints_sub_page = False
         self.saves = True
@@ -54,7 +54,7 @@ class WebScraper:
 
     def get_main_page_info(self):
         #   TODO: Improve try catch
-        try:   
+        try:
             r = requests.get('{}/news/'.format(self.LINK_PREFIX))
         except TimeoutError as TO:
             print('Could not get page : {0}'.format(TO))
@@ -77,7 +77,7 @@ class WebScraper:
             most_read = soup.find("div", class_="nw-c-most-read gs-t-news gs-u-box-size no-touch b-pw-1280")
             header = "\n\t{0}\n".format(most_read.h2.text).expandtabs(32)
             stories = most_read.find_all("div", class_="gs-o-media__body")
-            
+
         except:
             print("FAILED: \n\tUnable to scrape main page: '{}'\n".format(r.url).expandtabs(8))
 
@@ -92,7 +92,7 @@ class WebScraper:
 
 
     def __get_page_info_using_list(self, link, find_extra_pages = False, limit = 4, prints = False, saves = False, main_folder_name = None):
-        
+
         try:
             r = requests.get(link)
         except TimeoutError as TO:
@@ -135,14 +135,14 @@ class WebScraper:
                     captions = text.findAll('span', {'class':['off-screen', 'media-caption__text']})
                     for caption in captions:
                         all_text += ''.join('---[ {0} ]---\n'.format(caption.text.strip()))
-            print(all_text)
+
             if not all_text.strip() or not header.strip():
                 print("FAILED:\n\tNothing was Scraped from the page:\n '{}'\n".format(r.url).expandtabs(8))
                 return
         except:
             print("FAILED:\n\tUnable to scrape page:\n '{}'\n".format(r.url).expandtabs(8))
             return
-        
+
         if prints:
             print('\n*****{0}{1}*****\n'.format(header, all_text))
 
@@ -156,9 +156,9 @@ class WebScraper:
 
 
     def __save_article_to_file(self, link, header, all_text, main_folder_name):
-        
+
         file_name = '{0}.txt'.format(link[22:].strip().title().replace("-", "_").replace("/", "-"))
-        file_number = file_name[-12:-4]                
+        file_number = file_name[-12:-4]
         article_name_save = 'Article-List.txt'
 
         #   Checks to see if its in the main-branch or sub-branch
@@ -171,7 +171,7 @@ class WebScraper:
         path_to_file = "{0}\\{1}\\{2}".format(self.main_folder, sub_folder_name, file_name)
 
         print("Checking to se if ' {} ' exists!".format(file_name))
-            
+
         try:
             #   Checks if folder exists then if checks if file exists
             if not os.path.exists(self.main_folder):
@@ -189,9 +189,9 @@ class WebScraper:
                 print("\n\t*The Article does not exist*".expandtabs(8))
                 with open('{0}\\Article-List.txt'.format(self.main_folder), 'a') as article_list:
                     article_list.write("{}\n".format(file_number))
-                
-                current_time = datetime.datetime.now().strftime("\t[%H:%M:%S - %d.%m.%Y]".expandtabs(4))                    
-                #   TODO: if sports  link save to sports folder       
+
+                current_time = datetime.datetime.now().strftime("\t[%H:%M:%S - %d.%m.%Y]".expandtabs(4))
+                #   TODO: if sports  link save to sports folder
                 with open(path_to_file, 'w+', encoding='utf8') as file_to_save:
                     file_to_save.write('{0}{1}{2}\n'.format(current_time, header, all_text))
                     print('\n\tFile Saved!\n'.expandtabs(12))
@@ -202,7 +202,7 @@ class WebScraper:
 
 
     def __find_more_pages(self, link, tags, limit, url):
-        
+
         i = 0
         folder_name = link[22:].strip().title().replace("-", "_").replace("/", "-")
         try:
@@ -264,7 +264,7 @@ class WebScraper:
 
 def main():
 
-    WebScraper('BBC-NEWS', '/newsbeat-45381687')
+    WebScraper('BBC-NEWS')
 
     #webscraper = WebScraper("BBC-NEWS")
     #DataAnalyser(webscraper.main_folder)
