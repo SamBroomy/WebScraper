@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 import requests
 import os
 import datetime
+import time
 #from data_analyser import DataAnalyser
 
 
@@ -33,6 +34,7 @@ class WebScraper:
 
         #   Input Arguments
         self.find_sub_pages = True
+        self.max_sub_page_depth = 5
         self.page_limit = 10
         self.prints_output = False
         self.prints_sub_page = False
@@ -91,7 +93,7 @@ class WebScraper:
             self.__get_page_info_using_list(link, prints = self.prints_output, find_extra_pages = self.find_sub_pages, limit = self.page_limit, saves = self.saves)
 
 
-    def __get_page_info_using_list(self, link, find_extra_pages = False, limit = 4, prints = False, saves = False, main_folder_name = None):
+    def __get_page_info_using_list(self, link, find_extra_pages = False, limit = 4, prints = False, saves = False, main_folder_name = None, level = 0):
 
         try:
             r = requests.get(link)
@@ -147,104 +149,119 @@ class WebScraper:
             print('\n*****{0}{1}*****\n'.format(header, all_text))
 
         if saves:
-            self.__save_article_to_file(link, header, all_text, main_folder_name)
+
+            file_name = '{0}.txt'.format(link[22:].strip().title().replace("-", "_").replace("/", "-"))
+            file_number = file_name[-12:-4]
+            article_name_save = 'Article-List.txt'
+            print(level)
+            #   Checks to see if its in the main-branch or sub-branch
+            if main_folder_name == None:
+                sub_folder_name = file_name[:-4]
+                file_name = "Main-{0}".format(file_name)
+            else:
+                sub_folder_name = main_folder_name
+                file_name = "{0}{1}".format(level*'Sub-',file_name)
+            path_to_file = "{0}\\{1}\\{2}".format(self.main_folder, sub_folder_name, file_name)
+
+            print("Checking to se if ' {} ' exists!".format(file_name))
+
+            try:
+                #   Checks if folder exists then if checks if file exists
+                if not os.path.exists(self.main_folder):
+                    print("Creating '{}' folder to store all Articles".format(self.main_folder))
+                    os.mkdir(self.main_folder)
+                    print("Creating '{}' file to store the name of the file!".format(article_name_save))
+                    with open('{0}\\{1}'.format(self.main_folder, article_name_save),'w+', encoding='utf8'): pass  #   TODO: Anyting that goes in here
+                if not os.path.exists("{0}\\{1}".format(self.main_folder, sub_folder_name)):
+                    os.mkdir("{0}\\{1}".format(self.main_folder, sub_folder_name))
+
+                #   Checks the current article number against the article numbers in the file
+                if file_number in open('{0}\\Article-List.txt'.format(self.main_folder)).read():
+                    print("\n\tThe Article already saved!\n".expandtabs(8))
+                else:
+                    print("\n\t*The Article does not exist*".expandtabs(8))
+                    with open('{0}\\Article-List.txt'.format(self.main_folder), 'a') as article_list:
+                        article_list.write("{}\n".format(file_number))
+
+                    current_time = datetime.datetime.now().strftime("\t[%H:%M:%S - %d.%m.%Y]".expandtabs(4))
+                    #   TODO: if sports  link save to sports folder
+                    with open(path_to_file, 'w+', encoding='utf8') as file_to_save:
+                        file_to_save.write('{0}{1}{2}\n'.format(current_time, header, all_text))
+                        print('\n\tFile Saved!\n'.expandtabs(12))
+
+            except Exception as e:
+                print('\n\tUnable To Save File!\n'.expandtabs(24))
+                print("\n{0}\n".format(e))
+
+            #self.__save_article_to_file(link, header, all_text, main_folder_name, level)
 
         self.total_pages_found += 1
 
         if find_extra_pages:
-            self.__find_more_pages(link, tags, limit, r.url)
+            #self.__find_more_pages(link, tags, limit, r.url, level)
 
+            i = 0
+            if main_folder_name == None:
+                folder_name = link[22:].strip().title().replace("-", "_").replace("/", "-")
+            else: 
+                folder_name = sub_folder_name
 
-    def __save_article_to_file(self, link, header, all_text, main_folder_name):
+            try:
+                if len(tags) == 0:
+                    raise ValueError('There are no Related Topics for this page')
+                elif len(tags) == 1:
+                    main_tag = tags[0].li.a['href']
+                elif len(tags) == 2:
+                    main_tag = tags[1].li.a['href']
+            except ValueError as exp:
+                print ("ERROR: \n\t{}\n".format(exp).expandtabs(8))
+                return
 
-        file_name = '{0}.txt'.format(link[22:].strip().title().replace("-", "_").replace("/", "-"))
-        file_number = file_name[-12:-4]
-        article_name_save = 'Article-List.txt'
-
-        #   Checks to see if its in the main-branch or sub-branch
-        if main_folder_name == None:
-            sub_folder_name = file_name[:-4]
-            file_name = "Main-{0}".format(file_name)
-        else:
-            sub_folder_name = main_folder_name
-            file_name = "Sub-{0}".format(file_name)
-        path_to_file = "{0}\\{1}\\{2}".format(self.main_folder, sub_folder_name, file_name)
-
-        print("Checking to se if ' {} ' exists!".format(file_name))
-
-        try:
-            #   Checks if folder exists then if checks if file exists
-            if not os.path.exists(self.main_folder):
-                print("Creating '{}' folder to store all Articles".format(self.main_folder))
-                os.mkdir(self.main_folder)
-                print("Creating '{}' file to store the name of the file!".format(article_name_save))
-                with open('{0}\\{1}'.format(self.main_folder, article_name_save),'w+', encoding='utf8'): pass  #   TODO: Anyting that goes in here
-            if not os.path.exists("{0}\\{1}".format(self.main_folder, sub_folder_name)):
-                os.mkdir("{0}\\{1}".format(self.main_folder, sub_folder_name))
-
-            #   Checks the current article number against the article numbers in the file
-            if file_number in open('{0}\\Article-List.txt'.format(self.main_folder)).read():
-                print("\n\tThe Article already saved!\n".expandtabs(8))
-            else:
-                print("\n\t*The Article does not exist*".expandtabs(8))
-                with open('{0}\\Article-List.txt'.format(self.main_folder), 'a') as article_list:
-                    article_list.write("{}\n".format(file_number))
-
-                current_time = datetime.datetime.now().strftime("\t[%H:%M:%S - %d.%m.%Y]".expandtabs(4))
-                #   TODO: if sports  link save to sports folder
-                with open(path_to_file, 'w+', encoding='utf8') as file_to_save:
-                    file_to_save.write('{0}{1}{2}\n'.format(current_time, header, all_text))
-                    print('\n\tFile Saved!\n'.expandtabs(12))
-
-        except Exception as e:
-            print('\n\tUnable To Save File!\n'.expandtabs(24))
-            print("\n{0}\n".format(e))
-
-
-    def __find_more_pages(self, link, tags, limit, url):
-
-        i = 0
-        folder_name = link[22:].strip().title().replace("-", "_").replace("/", "-")
-        try:
-            if len(tags) == 0:
-                raise ValueError('There are no Related Topics for this page')
-            elif len(tags) == 1:
-                main_tag = tags[0].li.a['href']
-            elif len(tags) == 2:
-                main_tag = tags[1].li.a['href']
-        except ValueError as exp:
-            print ("ERROR: \n\t{}\n".format(exp).expandtabs(8))
-            return
-
-        page_link = '{0}{1}'.format(self.LINK_PREFIX, main_tag)
-        print ('\nLink to Sub-Page: {}'.format(page_link))
-        source = requests.get(page_link)
-        if self.get_page_error(source.status_code):
-            print("Error in trying to reach related topics page: {}\n".format(url))
-            return
-        soup = BeautifulSoup(source.text, 'html.parser')
-        links = soup.find_all('a', class_="lx-stream-asset__cta gel-long-primer-bold")
-        for link in links:
-            link = link['href'].split('?')[0]
-            if link[:6] == '/news/' or link[:7] == '/sport/':
-                if i >= limit:
-                    print('Max Number of sub_pages searched!')
-                    break
-                if link not in self.link_list:
-                    print('Page sublink: {}'.format(link))
-                    self.link_list.append(link)
-
-                    #   If its a sports page it wont scrape.
-                    #   TODO: Create a Sports page scraper
-
-                    subpage_link = '{0}{1}'.format(self.LINK_PREFIX,link)
-                    i += 1
-                    if link[:7] == '/sport/':
-                        print("\tSPORT PAGE -\n\t\tUnable to scrape sports page yet: '{}'".format(subpage_link).expandtabs(4))
+            page_link = '{0}{1}'.format(self.LINK_PREFIX, main_tag)
+            print ('Link to Sub-Page: {}'.format(page_link))
+            source = requests.get(page_link)
+            if self.get_page_error(source.status_code):
+                print("Error in trying to reach related topics page: {}\n".format(r.url))
+                return
+            soup = BeautifulSoup(source.text, 'html.parser')
+            links = soup.find_all('a', class_="lx-stream-asset__cta gel-long-primer-bold")
+            for link in links:
+                link = link['href'].split('?')[0]
+                if link[:6] == '/news/' or link[:7] == '/sport/':
+                    if i >= limit:
+                        print('Max Number of sub_pages searched!')
                         break
-                    self.__get_page_info_using_list(subpage_link, prints = self.prints_sub_page, saves = self.saves_sub_page, main_folder_name = folder_name)
+                    if link not in self.link_list:
+                        print('Page sublink: {}'.format(link))
+                        self.link_list.append(link)
 
-        print('Pages found: {}\n'.format(i))
+                        #   If its a sports page it wont scrape.
+                        #   TODO: Create a Sports page scraper
+
+                        subpage_link = '{0}{1}'.format(self.LINK_PREFIX,link)
+                        i += 1
+                        if link[:7] == '/sport/':
+                            print("\tSPORT PAGE -\n\t\tUnable to scrape sports page yet: '{}'".format(subpage_link).expandtabs(4))
+                            break
+                        if level >= self.max_sub_page_depth:
+                            more_pages = False
+                        else:   
+                            more_pages = True
+                            level += 1
+                        self.__get_page_info_using_list(subpage_link, find_extra_pages = more_pages, prints = self.prints_sub_page, saves = self.saves_sub_page, main_folder_name = folder_name, level = level)
+
+            print('Pages found: {}\n'.format(i))
+
+
+    #def __save_article_to_file(self, link, header, all_text, main_folder_name, level):
+
+
+
+
+
+    #def __find_more_pages(self, link, tags, limit, url, level):
+
+        
 
 
     def get_page_error(self, status_code):
@@ -263,8 +280,16 @@ class WebScraper:
 
 
 def main():
+    while True:
+        try:
+            WebScraper('BBC-NEWS')
+            time.sleep(3600)
+            print('\nTime: %s' % time.ctime())            
+        except KeyboardInterrupt:
+            print('\n\nKeyboard exception received. Exiting.')
+            exit()
 
-    WebScraper('BBC-NEWS')
+
 
     #webscraper = WebScraper("BBC-NEWS")
     #DataAnalyser(webscraper.main_folder)
